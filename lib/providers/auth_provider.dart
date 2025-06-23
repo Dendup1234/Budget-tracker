@@ -1,6 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../models/user.dart';
+import '../models/user.dart'; // Your custom User model
 
 class AuthProvider with ChangeNotifier {
   User? _user;
@@ -11,40 +11,39 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   AuthProvider() {
-    _loadUserFromPrefs();
+    _loadUserFromFirebase();
   }
 
-  //Loading the user from the prefs
-  Future<void> _loadUserFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final email = prefs.getString('user_email');
-    if (email != null) {
+  // Load user from Firebase on startup
+  void _loadUserFromFirebase() {
+    final fbUser = fb.FirebaseAuth.instance.currentUser;
+    if (fbUser != null) {
+      _user = User(email: fbUser.email!);
+    }
+    notifyListeners();
+  }
+
+  // Login with Firebase
+  Future<String?> login(String email, String password) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await fb.FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       _user = User(email: email);
+      return null; // success
+    } on fb.FirebaseAuthException catch (e) {
+      return e.message; // return error message
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }
 
-  //Login functionality
-  Future<void> login(String email, String password) async {
-    _isLoading = true;
-    notifyListeners();
-
-    await Future.delayed(const Duration(seconds: 2));
-    final prefs = await SharedPreferences.getInstance();
-
-    final savedEmail = prefs.getString('registered_email');
-    final savedPassword = prefs.getString('registered_password');
-
-    if (email == savedEmail && password == savedPassword) {
-      _user = User(email: email);
-      await prefs.setString('user_email', email);
-    }
-
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  //Register function
+  // Register with Firebase
   Future<String?> register(
     String email,
     String password,
@@ -52,7 +51,6 @@ class AuthProvider with ChangeNotifier {
   ) async {
     _isLoading = true;
     notifyListeners();
-    await Future.delayed(const Duration(seconds: 2));
 
     if (password != confirmPassword) {
       _isLoading = false;
@@ -60,23 +58,25 @@ class AuthProvider with ChangeNotifier {
       return "Passwords do not match.";
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('registered_email', email);
-    await prefs.setString('registered_password', password);
-
-    _user = User(email: email);
-    await prefs.setString('user_email', email);
-
-    _isLoading = false;
-    notifyListeners();
-    return null; // Success
+    try {
+      await fb.FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      _user = User(email: email);
+      return null; // success
+    } on fb.FirebaseAuthException catch (e) {
+      return e.message;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  //Logout function
+  // Logout
   Future<void> logout() async {
+    await fb.FirebaseAuth.instance.signOut();
     _user = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('user_email');
     notifyListeners();
   }
 }
