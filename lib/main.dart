@@ -21,6 +21,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: ThemeData(
+        primaryColor: const Color.fromARGB(255, 1, 83, 4),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(
+            0xFF6A1B9A,
+          ), // Also affects other theme elements
+          brightness: Brightness.light,
+        ),
+        useMaterial3: true,
+      ),
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           return auth.isAuthenticated ? const HomeScreen() : const Login();
